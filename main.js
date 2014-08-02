@@ -15,10 +15,13 @@ var screenH = 144; //144
 
 var game = new Phaser.Game(screenW, screenH, Phaser.AUTO, 'game_div');
 
+var lateral_speed = 0.6;
+
 var maxVelocity= 30;
 var minVelocity = 15;
 
-
+var explosionTimer = 0;
+var explosionRate = 50;
 //game.world.setBounds(-80, 0, 240, 1000);
 
 //Phaser.StageScaleMode.EXACT_FIT = 0;
@@ -105,13 +108,14 @@ var main_state = {
 		this.game.load.image('tank', 'assets/tank.png');
 		this.game.load.image('block', 'assets/block.png');
 		this.game.load.image('debris', 'assets/debris.png');
-
+		this.game.load.image('junk', 'assets/washingMachine.png');
 		
 		// Load animations
 		this.game.load.spritesheet('tankSprite', 'assets/tank_strip.png', 16, 16, 10);
 		this.game.load.spritesheet('rightSquirt', 'assets/squirtsprites.png', 24, 24, 24);
 		this.game.load.spritesheet('leftSquirt', 'assets/squirtspriteinverted.png', 24, 24, 24);
 		this.game.load.spritesheet('upSquirt', 'assets/squirtspriteup.png', 24, 24, 24);
+		this.game.load.spritesheet('downSquirt', 'assets/squirtspritedown.png', 24, 24, 24);
 		// load sounds
 		
 		this.game.load.audio('music1', 'assets/s1.wav');
@@ -129,12 +133,20 @@ var main_state = {
 		
 		this.ground = this.game.add.sprite(-screenW/2, 0, 'background');
 		//this.ground.body.gravity.y = -15;
-		 
+		
+		
+		// create blocks
 		this.blocks = game.add.group();
 		this.blocks.createMultiple(32, 'block');
 		
 		// create timer to create blocks
 		this.timer = this.game.time.events.loop(4500, this.add_blocks, this);
+		
+		// create junk
+		this.junk = game.add.group();
+		this.junk.createMultiple(6, 'junk');
+		this.junk.setAll('outOfBoundsKill', true);
+		this.junk.setAll('checkWorldBounds', true);		
 		
 		// Create container for debris
 		this.debris = game.add.group();
@@ -173,9 +185,10 @@ var main_state = {
 		var down_key = this.game.input.keyboard.addKey(Phaser.Keyboard.DOWN);
 		down_key.onDown.add(this.moveDown, this);	
 		
-		//var a_key = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
-		//a_key.onDown.add(this.squirt, this);
+		//var b_key = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
+		//b_key.onDown.add(this.squirt, this);
 		
+		// make sure the key has to have some kind of firing rate
 		var a_key = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
 		a_key.onDown.add(this.squirt, this);
 		
@@ -203,7 +216,7 @@ var main_state = {
 		if(this.game.input.keyboard.isDown(Phaser.Keyboard.LEFT))
 		{
 		
-			this.tank.body.x -= 1;
+			this.tank.body.x -= lateral_speed;
 			//console.log("left is down");
 			
 			if(this.tank.body.x < 40 && this.tank.body.x > -40)
@@ -213,7 +226,8 @@ var main_state = {
 		}
 		if(this.game.input.keyboard.isDown(Phaser.Keyboard.RIGHT))
 		{
-			this.tank.body.x += 1;
+			this.tank.body.x += lateral_speed;
+			
 			//console.log("right is down");
 			if(this.tank.body.x < 180 && this.tank.body.x > 100)
 			{
@@ -251,7 +265,7 @@ var main_state = {
 			// moving left so add squirt to right
 			console.log('squirting right');
 			squirt = this.game.add.sprite(this.tank.body.x + 26, this.tank.body.y + 8, 'rightSquirt');
-			squirt.anchor.setTo(0.5, 0.5);	
+			squirt.anchor.setTo(0.5, 0.5);
 			squirt.animations.add('squirt');
 			squirt.animations.getAnimation('squirt').killOnComplete = true;
 			squirt.animations.play('squirt', 20, false); 
@@ -260,14 +274,24 @@ var main_state = {
 		{
 			// moving right so add squirt to left
 			console.log('squirting left');
-			squirt = this.game.add.sprite(this.tank.body.x - 16, this.tank.body.y + 8, 'leftSquirt');
+			squirt = this.game.add.sprite(this.tank.body.x - 6, this.tank.body.y + 8, 'leftSquirt');
 			squirt.anchor.setTo(0.5, 0.5);	
 			squirt.animations.add('squirt');
 			squirt.animations.getAnimation('squirt').killOnComplete = true;
 			squirt.animations.play('squirt', 20, false); 
 			
 		}
-		else
+		else if(this.game.input.keyboard.isDown(Phaser.Keyboard.UP))
+		{
+			// down squirt
+			console.log('squirting down');
+			squirt = this.game.add.sprite(this.tank.body.x + 8, this.tank.body.y + 24, 'downSquirt');
+			squirt.anchor.setTo(0.5, 0.5);	
+			squirt.animations.add('squirt');
+			squirt.animations.getAnimation('squirt').killOnComplete = true;
+			squirt.animations.play('squirt', 20, false); 
+		}		
+		else		
 		{
 			// up squirt
 			console.log('squirting up');
@@ -278,13 +302,58 @@ var main_state = {
 			squirt.animations.play('squirt', 20, false); 
 		}
 		
-	
-/* 		squirt = this.game.add.sprite(this.tank.body.x + 24, this.tank.body.y + 8, 'rightSquirt');
-		squirt.anchor.setTo(0.5, 0.5);
 		
-		squirt.animations.add('squirt');
-		squirt.animations.getAnimation('squirt').killOnComplete = true;
-		squirt.animations.play('squirt', 20, false); */
+		
+		// Figure out what to do once the squirt has blown up
+		// There should be an explosion function that checks nearby objects and shunts them away if they are too close
+		// Creates a timed event after which the explosion occurs. Adjust the modifier if the animation changes etc.
+		this.game.time.events.add(Phaser.Timer.SECOND * 0.3, this.explosion, this);
+		
+	},
+	
+	explosion: function() {
+	
+		//console.log(explosionX, explosionY);
+		console.log('Kaboom!');	
+		
+		x_dif = squirt.body.x - this.tank.body.x;
+		y_dif = squirt.body.y - this.tank.body.y;
+		
+		console.log(x_dif);
+		console.log(y_dif);
+		
+		// check if explosion is close enough
+		blast_radius = 28;
+		if(Math.sqrt(x_dif * x_dif + y_dif * y_dif) < blast_radius)
+		{
+				
+			// check which side the explosion is on
+			
+			y_boost = 0;
+			x_boost = 0;
+			boost_level = 45;				
+			
+			if(x_dif > 8)
+			{
+				x_boost = -boost_level;
+			} 
+			else if(x_dif < -8) 
+			{
+				x_boost = boost_level;
+			}
+			
+			if(y_dif > 12)
+			{
+				y_boost = -boost_level; 
+			}
+			else if (y_dif < -12)
+			{
+				y_boost = boost_level;
+			}
+			
+			this.tank.body.velocity.y += y_boost;
+			this.tank.body.velocity.x += x_boost;
+		}
 	},
 	
 	cameraLeft: function() {
@@ -324,9 +393,7 @@ var main_state = {
 			this.tank.body.velocity.y += boost;
 		}
 	},
-	
-	
-	
+		
 	
 	jump: function() {
 		// add velocity
@@ -360,6 +427,30 @@ var main_state = {
 				console.log("adding block to " + i * 20 + ", " + 0);
 	},
 	
+	add_one_junk: function(x, y){
+	
+		var junk = this.junks.getFirstDead();
+		
+		// set new position
+		junk.reset(x, y);
+		// add velocity 
+		junk.body.velocity.y = -12; // randomise
+		junk.body.velocity.y = 6; // randomise and take position into account
+		
+		// kill when out of bounds
+		junk.outOfBoundsKill = true;
+	},
+	
+	add_junk: function() {
+		
+		var spot = Math.floor(Math.random() * 10) + 1;
+		
+		this.add_one_junk(i * 20, screenH);
+		console.log('adding junk to ' + i * 20 + ', ' + 0);
+	
+	
+	},
+	
 	game_title: function() {
 		this.music1.stop();
 		this.game.time.events.remove(this.timer);
@@ -390,7 +481,6 @@ var main_state = {
 	
 	
 };
-
 
 // Add and start the 'main' state to start the game
 game.state.add('title', title_state);
