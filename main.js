@@ -15,6 +15,10 @@ var screenH = 144; //144
 
 var game = new Phaser.Game(screenW, screenH, Phaser.AUTO, 'game_div');
 
+var maxVelocity= 30;
+var minVelocity = 15;
+
+
 //game.world.setBounds(-80, 0, 240, 1000);
 
 //Phaser.StageScaleMode.EXACT_FIT = 0;
@@ -101,12 +105,13 @@ var main_state = {
 		this.game.load.image('tank', 'assets/tank.png');
 		this.game.load.image('block', 'assets/block.png');
 		this.game.load.image('debris', 'assets/debris.png');
-		
-		
+
 		
 		// Load animations
 		this.game.load.spritesheet('tankSprite', 'assets/tank_strip.png', 16, 16, 10);
-		
+		this.game.load.spritesheet('rightSquirt', 'assets/squirtsprites.png', 24, 24, 24);
+		this.game.load.spritesheet('leftSquirt', 'assets/squirtspriteinverted.png', 24, 24, 24);
+		this.game.load.spritesheet('upSquirt', 'assets/squirtspriteup.png', 24, 24, 24);
 		// load sounds
 		
 		this.game.load.audio('music1', 'assets/s1.wav');
@@ -118,7 +123,7 @@ var main_state = {
 		//this.game.stage.smoothed = false
 		//sscaleUp();
 	
-	    this.world.setBounds(-20,0,200,144);
+	    this.world.setBounds(-40,0,220,144);
 		game.camera.x = 0;
 		game.camera.y = 0;
 		
@@ -162,6 +167,20 @@ var main_state = {
 		left_key.onDown.add(this.moveLeft, this);
 		//left_key.isDown.add(this.cameraLeft, this);
 		
+		var up_key = this.game.input.keyboard.addKey(Phaser.Keyboard.UP);
+		up_key.onDown.add(this.moveUp, this);
+		
+		var down_key = this.game.input.keyboard.addKey(Phaser.Keyboard.DOWN);
+		down_key.onDown.add(this.moveDown, this);	
+		
+		//var a_key = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
+		//a_key.onDown.add(this.squirt, this);
+		
+		var a_key = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
+		a_key.onDown.add(this.squirt, this);
+		
+		
+		
 		this.score = 0;
 		var style = { font: "30px Arial", fill: "#ffffff" };
 		this.label_Score = this.game.add.text(20, 20, "0", style);
@@ -181,45 +200,133 @@ var main_state = {
 			
 		this.game.physics.overlap(this.tank, this.blocks, this.restart_game, null, this);
 		 
-		 
 		if(this.game.input.keyboard.isDown(Phaser.Keyboard.LEFT))
 		{
+		
+			this.tank.body.x -= 1;
 			//console.log("left is down");
 			
-			if(this.tank.body.x < 60 && this.tank.body.x > 0)
+			if(this.tank.body.x < 40 && this.tank.body.x > -40)
 			{
 				this.game.camera.x -= 1;
 			}
 		}
-		
 		if(this.game.input.keyboard.isDown(Phaser.Keyboard.RIGHT))
 		{
+			this.tank.body.x += 1;
 			//console.log("right is down");
-			
-			if(this.tank.body.x < 160 && this.tank.body.x > 100)
+			if(this.tank.body.x < 180 && this.tank.body.x > 100)
 			{
 				this.game.camera.x += 1;
 			}
 		}
-	
+		// reduce player lateral velocity through inertia
+		if(this.tank.body.velocity.x > 0)
+		{
+			this.tank.body.velocity.x -= 0.8;
+		}
+		if(this.tank.body.velocity.x < 0)
+		{
+			this.tank.body.velocity.x += 0.8;
+		}
+		// reduce player vertical velocity through inertia
+		if(this.tank.body.velocity.y > 0)
+		{
+			this.tank.body.velocity.y -= 0.4;
+		}
+		if(this.tank.body.velocity.y < 0)
+		{
+			this.tank.body.velocity.y += 0.4;
+		}
+		
+		
+		
+
+		
     },
+	
+	squirt: function() {
+		// Check if left or right or rear
+		if(this.game.input.keyboard.isDown(Phaser.Keyboard.LEFT)){
+			// moving left so add squirt to right
+			console.log('squirting right');
+			squirt = this.game.add.sprite(this.tank.body.x + 26, this.tank.body.y + 8, 'rightSquirt');
+			squirt.anchor.setTo(0.5, 0.5);	
+			squirt.animations.add('squirt');
+			squirt.animations.getAnimation('squirt').killOnComplete = true;
+			squirt.animations.play('squirt', 20, false); 
+		}
+		else if(this.game.input.keyboard.isDown(Phaser.Keyboard.RIGHT))
+		{
+			// moving right so add squirt to left
+			console.log('squirting left');
+			squirt = this.game.add.sprite(this.tank.body.x - 16, this.tank.body.y + 8, 'leftSquirt');
+			squirt.anchor.setTo(0.5, 0.5);	
+			squirt.animations.add('squirt');
+			squirt.animations.getAnimation('squirt').killOnComplete = true;
+			squirt.animations.play('squirt', 20, false); 
+			
+		}
+		else
+		{
+			// up squirt
+			console.log('squirting up');
+			squirt = this.game.add.sprite(this.tank.body.x + 8, this.tank.body.y - 12, 'upSquirt');
+			squirt.anchor.setTo(0.5, 0.5);	
+			squirt.animations.add('squirt');
+			squirt.animations.getAnimation('squirt').killOnComplete = true;
+			squirt.animations.play('squirt', 20, false); 
+		}
+		
+	
+/* 		squirt = this.game.add.sprite(this.tank.body.x + 24, this.tank.body.y + 8, 'rightSquirt');
+		squirt.anchor.setTo(0.5, 0.5);
+		
+		squirt.animations.add('squirt');
+		squirt.animations.getAnimation('squirt').killOnComplete = true;
+		squirt.animations.play('squirt', 20, false); */
+	},
 	
 	cameraLeft: function() {
 		this.game.camera.x -= 5;
 	},
 	
 	moveLeft: function() {
-		this.tank.body.velocity.x = -35;
+	
+/* 		var boost = Math.floor((maxVelocity - minVelocity)* Math.random()) + minVelocity;
 		
-
+	
+		this.tank.body.velocity.x -= boost;
+		console.log("moving left by " + boost); */
 	},
 	
 	moveRight: function() {
-	
-		this.tank.body.velocity.x = 35;
+		
+	/* 	var boost = Math.floor((maxVelocity - minVelocity)* Math.random()) + minVelocity;
+		this.tank.body.velocity.x += boost;
+		console.log("moving right by " + boost); */
 
-	
 	},
+	
+	moveUp: function() {
+	
+		if(this.tank.body.y > 20)
+		{
+			var boost = Math.floor((maxVelocity - minVelocity)* Math.random()) + minVelocity;
+			this.tank.body.velocity.y -= boost;
+		}
+	},
+	
+	moveDown: function() {
+		if(this.tank.body.y < 120)
+		{
+			var boost = Math.floor((maxVelocity - minVelocity)* Math.random()) + minVelocity;
+			this.tank.body.velocity.y += boost;
+		}
+	},
+	
+	
+	
 	
 	jump: function() {
 		// add velocity
