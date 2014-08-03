@@ -15,7 +15,10 @@ var screenH = 144; //144
 
 var game = new Phaser.Game(screenW, screenH, Phaser.AUTO, 'game_div');
 
-var lateral_speed = 0.6;
+var death = true; // set to false for invulnerability debug
+
+var lateral_speed = 0.8;
+var vertical_speed = 1.3;
 
 var maxVelocity= 30;
 var minVelocity = 15;
@@ -131,7 +134,7 @@ var main_state = {
 		this.game.load.spritesheet('coin', 'assets/CoinSpin.png', 9, 9, 6);
 		
 		// load sounds
-		this.game.load.audio('music1', 'assets/s1.wav');
+		this.game.load.audio('music1', 'assets/s2.wav');
 		
 	},
 
@@ -145,9 +148,11 @@ var main_state = {
 		
 		this.ground = this.game.add.sprite(-40, 0, 'background');
 		this.ground.body.gravity.y = -1; // speed of the background scrolling
-				
+		
+		this.lethals = game.add.group();
+		
 		// create blocks
-		this.blocks = game.add.group();
+		this.blocks = game.add.group(parent = this.lethals);
 		this.blocks.createMultiple(32, 'block');
 		
 		// create timers //
@@ -156,21 +161,23 @@ var main_state = {
 		//this.coinTimer1 = this.game.time.events.loop(3000, this.add_coins, this);		
 		
 		// create junk - destroy player on contact
-		this.junks = game.add.group();
+		this.junks = game.add.group(parent = this.lethals);
 		this.junks.createMultiple(32, 'junk');
 		//this.junks.add.sprite('debris');
 		//this.junk.setAll('outOfBoundsKill', true);
 		//this.junk.setAll('checkWorldBounds', true);		
 		
 		// Create container for debris
-		this.debris = game.add.group();
+		this.debris = game.add.group(parent = this.lethals);
 		this.debris.createMultiple(32, 'debris');
 		this.debris.setAll('outOfBoundsKill', true);
 		this.debris.setAll('checkWorldBounds', true);
 		
 		// The energy wave occasionally spits some energy
-		this.energySpits = game.add.group();
+		this.energySpits = game.add.group(parent = this.lethals);
 		this.energySpits.createMultiple(32, 'energySpit');
+		this.energySpits.setAll('outOfBoundsKill', true);
+		this.energySpits.setAll('checkWorldBounds', true);
 		
 		this.tank = this.game.add.sprite(this.game.world.centerX, 25, 'tankSprite');
 		this.tank.body.velocity.y = 30;
@@ -225,7 +232,7 @@ var main_state = {
 		//this.label_Score = this.game.add.text(20, 20, "0", style);
 		
 		this.music1 = this.game.add.audio('music1');
-		// this.music1.play();
+		this.music1.play();
 
 		},
 		
@@ -237,11 +244,16 @@ var main_state = {
 		
 		if (this.tank.inWorld == false)
 			this.restart_game();
-			
-		this.game.physics.overlap(this.tank, this.blocks, this.restart_game, null, this);
-		this.game.physics.overlap(this.tank, this.junks, this.restart_game, null, this);
-		this.game.physics.overlap(this.tank, this.energyWave, this.restart_game, null, this);
-		this.game.physics.overlap(this.tank, this.debris, this.restart_game, null, this); 
+		
+		if(death)
+		{
+			this.game.physics.overlap(this.tank, this.lethals, this.restart_game, null, this);
+		}
+		
+		// this.game.physics.overlap(this.tank, this.blocks, this.restart_game, null, this);
+		// this.game.physics.overlap(this.tank, this.junks, this.restart_game, null, this);
+		// this.game.physics.overlap(this.tank, this.energyWave, this.restart_game, null, this);
+		// this.game.physics.overlap(this.tank, this.debris, this.restart_game, null, this); 
 		 
 		// Debris launching timer
 		
@@ -285,12 +297,12 @@ var main_state = {
 		
 		if(this.game.input.keyboard.isDown(Phaser.Keyboard.UP))
 		{
-			this.tank.body.y -= lateral_speed;
+			this.tank.body.y -= vertical_speed;
 		}
 		
 		if(this.game.input.keyboard.isDown(Phaser.Keyboard.DOWN))
 		{
-			this.tank.body.y += lateral_speed;
+			this.tank.body.y += vertical_speed;
 		}
 		
 		// reduce player lateral velocity through inertia
@@ -305,11 +317,11 @@ var main_state = {
 		// reduce player vertical velocity through inertia
 		if(this.tank.body.velocity.y > 0)
 		{
-			this.tank.body.velocity.y -= 0.4;
+			this.tank.body.velocity.y -= 0.7;
 		}
 		if(this.tank.body.velocity.y < 0)
 		{
-			this.tank.body.velocity.y += 0.4;
+			this.tank.body.velocity.y += 0.7;
 		}
 		
     },
@@ -317,7 +329,6 @@ var main_state = {
 	squirt: function() {
 	
 		// Check if the cooldown is over
-		
 		if(game.time.now > nextSquirt)
 		{
 			
@@ -326,7 +337,7 @@ var main_state = {
 			// Check if left or right or rear
 			if(this.game.input.keyboard.isDown(Phaser.Keyboard.LEFT)){
 				// moving left so add squirt to right
-				console.log('squirting right');
+				// console.log('squirting right');
 				squirt = this.game.add.sprite(this.tank.body.x + 26, this.tank.body.y + 8, 'rightSquirt');
 				squirt.anchor.setTo(0.5, 0.5);
 				squirt.animations.add('squirt');
@@ -336,7 +347,7 @@ var main_state = {
 			else if(this.game.input.keyboard.isDown(Phaser.Keyboard.RIGHT))
 			{
 				// moving right so add squirt to left
-				console.log('squirting left');
+				// console.log('squirting left');
 				squirt = this.game.add.sprite(this.tank.body.x - 2, this.tank.body.y + 8, 'leftSquirt');
 				squirt.anchor.setTo(0.5, 0.5);	
 				squirt.animations.add('squirt');
@@ -347,7 +358,7 @@ var main_state = {
 			else if(this.game.input.keyboard.isDown(Phaser.Keyboard.UP))
 			{
 				// down squirt
-				console.log('squirting down');
+				// console.log('squirting down');
 				squirt = this.game.add.sprite(this.tank.body.x + 8, this.tank.body.y + 24, 'downSquirt');
 				squirt.anchor.setTo(0.5, 0.5);	
 				squirt.animations.add('squirt');
@@ -357,34 +368,27 @@ var main_state = {
 			else		
 			{
 				// up squirt
-				console.log('squirting up');
+				// console.log('squirting up');
 				squirt = this.game.add.sprite(this.tank.body.x + 8, this.tank.body.y - 12, 'upSquirt');
 				squirt.anchor.setTo(0.5, 0.5);	
 				squirt.animations.add('squirt');
 				squirt.animations.getAnimation('squirt').killOnComplete = true;
 				squirt.animations.play('squirt', 20, false); 
 			}
-			
-			
-			
 			// Figure out what to do once the squirt has blown up
 			// There should be an explosion function that checks nearby objects and shunts them away if they are too close
 			// Creates a timed event after which the explosion occurs. Adjust the modifier if the animation changes etc.
+
 			this.game.time.events.add(Phaser.Timer.SECOND * 0.3, this.explosion, this);
 		}
 	},
 	
 	explosion: function() {
-	
-		//console.log(explosionX, explosionY);
-		//console.log('Kaboom!');	
-		
+		//game.physics.enable(squirt, Phaser.Physics.ARCADE);
+		//squirt.body.setSize(20, 20);
 		x_dif = squirt.body.x - this.tank.body.x;
 		y_dif = squirt.body.y - this.tank.body.y;
-		
-		//console.log(x_dif);
-		//console.log(y_dif);
-		
+			
 		// check if explosion is close enough to player
 		blast_radius = 28;
 		if(Math.sqrt(x_dif * x_dif + y_dif * y_dif) < blast_radius)
@@ -405,7 +409,7 @@ var main_state = {
 				x_boost = boost_level;
 			}
 			
-			if(y_dif > 12)
+			if(y_dif > 8)
 			{
 				y_boost = -boost_level; 
 			}
@@ -418,8 +422,18 @@ var main_state = {
 			this.tank.body.velocity.x += x_boost;
 		}
 		
+		// Check all lethals
+		
+		this.lethals.forEachAlive(function (child) 
+			{
+				t = child;			
+				this.game.physics.overlap(squirt, child, this.destruction, null, this);
+		
+			}, this);		
+	},
+		
 		// Check all living junk
-		this.junks.forEachAlive(function (collateral) { 
+		/* this.junks.forEachAlive(function (collateral) { 
 		c = collateral;
 		console.log(collateral.body.x + " " + squirt.body.x)
 		x_dif = squirt.body.x - collateral.body.x;
@@ -446,19 +460,13 @@ var main_state = {
 		{
 			this.game.time.events.add(Phaser.Timer.SECOND * 0.54, this.destruction, this);
 		}
-		}, this);
+		}, this); */
 	
-	},
 	
 	destruction: function() {
-		c.kill();
+		t.kill();
 	},
-	
-//	blowup: function(child) {
-//		console.log(child.body.x);
-		
-//	},
-	
+
 	cameraLeft: function() {
 		this.game.camera.x -= 5;
 	},
@@ -617,7 +625,7 @@ var main_state = {
 		var spot = Math.floor(Math.random() * 10) + 1;
 		
 		this.add_one_junk(spot * 20, screenH);
-		console.log('adding junk to ' + spot * 20 + ', ' + 0);
+		// console.log('adding junk to ' + spot * 20 + ', ' + 0);
 	
 	
 	},
@@ -627,6 +635,9 @@ var main_state = {
 		
 	},
 	
+	
+	// Add something positive to pick up
+	// maybe a special function for the B-button when sufficiently many have been gotten
 	add_one_coin: function(x, y){
 		
 		var coin = this.coins.getFirstDead();
@@ -687,6 +698,10 @@ var main_state = {
 	
 	},
 	
+	render: function() {
+	
+	},
+	
 	
 };
 
@@ -694,3 +709,5 @@ var main_state = {
 game.state.add('title', title_state);
 game.state.add('main', main_state);  
 game.state.start('title'); 
+
+//http://www.beepbox.co/#4s9k5l0e4t6a7g0fj7i0r1w4111f0000d2111c0000h0000v0100o3210b08000000110000000000000000000000p21rFxX00G7lk257lk2Itlg8aBC7kVmln9F1p80KAaqWWgTnRRSMwVx1s38OXrLMk1jfxcfGaac6PNlkgl6kP7gGCsi0000
